@@ -3,6 +3,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import * as schema from "../../db/schema";
 import { json, requireUser } from "../lib/auth";
+import { ensureSchema } from "../lib/ensure-schema";
 const db = drizzle({ schema });
 const profileSchema = z.object({
   firstName: z.string().trim().min(1).max(80),
@@ -41,6 +42,7 @@ const inspectionSchema = z
 export default async (request: Request, context: unknown) => {
   try {
     const user = requireUser(context);
+    await ensureSchema();
     const url = new URL(request.url);
     const path = url.pathname
       .replace(/^.*\/api\/?/, "")
