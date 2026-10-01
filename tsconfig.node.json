@@ -1,0 +1,1 @@
+{"compilerOptions":{"composite":true,"noEmit":true,"skipLibCheck":true,"module":"ESNext","moduleResolution":"Bundler","allowSyntheticDefaultImports":true,"strict":true,"types":["node"]},"include":["vite.config.ts","netlify/**/*.ts","db/**/*.ts","drizzle.config.ts"]}
