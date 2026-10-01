@@ -2,9 +2,9 @@ import { getStore } from "@netlify/blobs";
 import { json, requireUser } from "../lib/auth";
 const allowed = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxSize = 5 * 1024 * 1024;
-export default async (request: Request, context: unknown) => {
+export default async (request: Request) => {
   try {
-    const user = requireUser(context);
+    const user = await requireUser();
     const url = new URL(request.url);
     const inspectionId = url.searchParams.get("inspectionId");
     if (!inspectionId || !/^[0-9a-f-]{36}$/i.test(inspectionId))

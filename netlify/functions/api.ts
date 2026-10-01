@@ -39,9 +39,9 @@ const inspectionSchema = z
     updatedAt: z.string(),
   })
   .passthrough();
-export default async (request: Request, context: unknown) => {
+export default async (request: Request) => {
   try {
-    const user = requireUser(context);
+    const user = await requireUser();
     await ensureSchema();
     const url = new URL(request.url);
     const path = url.pathname

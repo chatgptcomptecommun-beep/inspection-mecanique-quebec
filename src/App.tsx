@@ -119,9 +119,6 @@ function App() {
     netlifyIdentity.init();
     const sync = (u: User | null) => {
       setUser(u);
-      if (u?.token?.access_token)
-        localStorage.setItem("nf_jwt", u.token.access_token);
-      else localStorage.removeItem("nf_jwt");
     };
     netlifyIdentity.on("login", (u) => {
       sync(u);

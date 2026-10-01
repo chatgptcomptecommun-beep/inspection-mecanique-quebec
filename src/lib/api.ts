@@ -1,14 +1,23 @@
 import type { Inspection, InspectionPhoto, MechanicProfile } from "../types";
-const authHeaders = (): Record<string, string> => {
-  const token = localStorage.getItem("nf_jwt");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+import netlifyIdentity from "netlify-identity-widget";
+
+const authHeaders = async (): Promise<Record<string, string>> => {
+  if (!netlifyIdentity.currentUser()) return {};
+  try {
+    const token = await netlifyIdentity.refresh();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  } catch {
+    const token = netlifyIdentity.currentUser()?.token?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
 };
 const request = async <T>(path: string, options: RequestInit = {}) => {
+  const authentication = await authHeaders();
   const response = await fetch(`/api/${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...authHeaders(),
+      ...authentication,
       ...options.headers,
     },
   });
@@ -36,11 +45,12 @@ export const api = {
   deleteInspection: (id: string) =>
     request<void>(`inspections/${id}`, { method: "DELETE" }),
   uploadPhoto: async (inspectionId: string, itemId: string, file: File) => {
+    const authentication = await authHeaders();
     const response = await fetch(
       `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&itemId=${encodeURIComponent(itemId)}`,
       {
         method: "POST",
-        headers: { ...authHeaders(), "Content-Type": file.type },
+        headers: { ...authentication, "Content-Type": file.type },
         body: file,
       },
     );
@@ -49,17 +59,19 @@ export const api = {
     return { ...body, itemId, mimeType: file.type, name: file.name } as InspectionPhoto;
   },
   photoBlob: async (inspectionId: string, key: string) => {
+    const authentication = await authHeaders();
     const response = await fetch(
       `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&id=${encodeURIComponent(key)}`,
-      { headers: authHeaders() },
+      { headers: authentication },
     );
     if (!response.ok) throw new Error("Photo inaccessible.");
     return response.blob();
   },
   deletePhoto: async (inspectionId: string, key: string) => {
+    const authentication = await authHeaders();
     const response = await fetch(
       `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&id=${encodeURIComponent(key)}`,
-      { method: "DELETE", headers: authHeaders() },
+      { method: "DELETE", headers: authentication },
     );
     if (!response.ok) throw new Error("Suppression de la photo impossible.");
   },
