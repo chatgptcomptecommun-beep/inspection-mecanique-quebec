@@ -1,11 +1,14 @@
-import type { Inspection, MechanicProfile } from "../types";
-const request = async <T>(path: string, options: RequestInit = {}) => {
+import type { Inspection, InspectionPhoto, MechanicProfile } from "../types";
+const authHeaders = (): Record<string, string> => {
   const token = localStorage.getItem("nf_jwt");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+const request = async <T>(path: string, options: RequestInit = {}) => {
   const response = await fetch(`/api/${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...authHeaders(),
       ...options.headers,
     },
   });
@@ -32,4 +35,32 @@ export const api = {
     }),
   deleteInspection: (id: string) =>
     request<void>(`inspections/${id}`, { method: "DELETE" }),
+  uploadPhoto: async (inspectionId: string, itemId: string, file: File) => {
+    const response = await fetch(
+      `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&itemId=${encodeURIComponent(itemId)}`,
+      {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": file.type },
+        body: file,
+      },
+    );
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error || "Envoi de la photo impossible.");
+    return { ...body, itemId, mimeType: file.type, name: file.name } as InspectionPhoto;
+  },
+  photoBlob: async (inspectionId: string, key: string) => {
+    const response = await fetch(
+      `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&id=${encodeURIComponent(key)}`,
+      { headers: authHeaders() },
+    );
+    if (!response.ok) throw new Error("Photo inaccessible.");
+    return response.blob();
+  },
+  deletePhoto: async (inspectionId: string, key: string) => {
+    const response = await fetch(
+      `/api/photos?inspectionId=${encodeURIComponent(inspectionId)}&id=${encodeURIComponent(key)}`,
+      { method: "DELETE", headers: authHeaders() },
+    );
+    if (!response.ok) throw new Error("Suppression de la photo impossible.");
+  },
 };

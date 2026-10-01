@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import "./photos.css";
 import netlifyIdentity, { type User } from "netlify-identity-widget";
 import { checklist } from "./data/checklist";
 import {
@@ -12,6 +13,7 @@ import { exportInspectionPdf } from "./lib/pdf";
 import { api } from "./lib/api";
 import type {
   Inspection,
+  InspectionPhoto,
   ItemResult,
   MechanicProfile,
   ResultState,
@@ -42,6 +44,7 @@ const blankInspection = (): Inspection => {
       type: "Automobile",
     },
     results: {},
+    photos: [],
     recommendations: "",
     createdAt: now.toISOString(),
     updatedAt: now.toISOString(),
@@ -71,6 +74,36 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+function PhotoThumbnail({
+  inspectionId,
+  photo,
+  onDelete,
+}: {
+  inspectionId: string;
+  photo: InspectionPhoto;
+  onDelete: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    let active = true;
+    let objectUrl = "";
+    api.photoBlob(inspectionId, photo.key).then((blob) => {
+      if (!active) return;
+      objectUrl = URL.createObjectURL(blob);
+      setUrl(objectUrl);
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [inspectionId, photo.key]);
+  return (
+    <figure className="photo-thumb">
+      {url ? <img src={url} alt={`Photo de ${photo.name}`} /> : <span>Chargement…</span>}
+      <button className="danger" type="button" onClick={onDelete} aria-label={`Supprimer ${photo.name}`}>×</button>
+    </figure>
   );
 }
 function App() {
@@ -221,7 +254,7 @@ function App() {
           setCurrent(null);
           setMessage("");
         }}
-        onSave={() => save()}
+        onSave={(value) => save(value)}
         onFinalize={finalize}
       />
     );
@@ -333,9 +366,17 @@ function App() {
                   {i.status === "completed" && (
                     <button
                       className="secondary"
-                      onClick={() => exportInspectionPdf(i, profile)}
+                      onClick={() => void exportInspectionPdf(i, profile, "detailed")}
                     >
-                      PDF
+                      PDF détaillé
+                    </button>
+                  )}
+                  {i.status === "completed" && (
+                    <button
+                      className="secondary"
+                      onClick={() => void exportInspectionPdf(i, profile, "summary")}
+                    >
+                      PDF résumé
                     </button>
                   )}
                   <button
@@ -380,9 +421,10 @@ function InspectionEditor({
   profile: MechanicProfile;
   message: string;
   onBack: () => void;
-  onSave: () => void;
+  onSave: (inspection?: Inspection) => void;
   onFinalize: () => void;
 }) {
+  const [photoBusy, setPhotoBusy] = useState<string | null>(null);
   const total = checklist.length + 2;
   const patch = (p: Partial<Inspection>) =>
     setInspection({ ...inspection, ...p });
@@ -396,6 +438,37 @@ function InspectionEditor({
       results: { ...inspection.results, [id]: { ...existing, ...p } },
     });
   };
+  const addPhotos = async (itemId: string, files: FileList | null) => {
+    if (!files?.length) return;
+    setPhotoBusy(itemId);
+    try {
+      const uploaded: InspectionPhoto[] = [];
+      for (const file of Array.from(files)) {
+        uploaded.push(await api.uploadPhoto(inspection.id, itemId, file));
+      }
+      const next = { ...inspection, photos: [...(inspection.photos ?? []), ...uploaded] };
+      setInspection(next);
+      onSave(next);
+    } catch (error) {
+      alert((error as Error).message);
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
+  const removePhoto = async (photo: InspectionPhoto) => {
+    if (!confirm("Supprimer cette photo?")) return;
+    setPhotoBusy(photo.itemId);
+    try {
+      await api.deletePhoto(inspection.id, photo.key);
+      const next = { ...inspection, photos: (inspection.photos ?? []).filter((entry) => entry.id !== photo.id) };
+      setInspection(next);
+      onSave(next);
+    } catch (error) {
+      alert((error as Error).message);
+    } finally {
+      setPhotoBusy(null);
+    }
+  };
   return (
     <main>
       <header className="sticky">
@@ -406,7 +479,7 @@ function InspectionEditor({
           <small>{inspection.reportNumber}</small>
           <h1>Inspection</h1>
         </div>
-        <button onClick={onSave}>Sauvegarder</button>
+        <button onClick={() => onSave()}>Sauvegarder</button>
       </header>
       <div className="progress">
         <span style={{ width: `${((step + 1) / total) * 100}%` }} />
@@ -640,6 +713,37 @@ function InspectionEditor({
                     />
                   </Field>
                 </div>
+                <div className="photo-tools">
+                  <label className="photo-upload">
+                    {photoBusy === item.id ? "Envoi en cours…" : "+ Ajouter des photos"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      capture="environment"
+                      multiple
+                      disabled={photoBusy === item.id}
+                      onChange={(event) => {
+                        void addPhotos(item.id, event.target.files);
+                        event.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <small>Appareil photo ou galerie • 5 Mo maximum par image</small>
+                </div>
+                {(inspection.photos ?? []).some((photo) => photo.itemId === item.id) && (
+                  <div className="photo-gallery" aria-label={`Photos — ${item.label}`}>
+                    {(inspection.photos ?? [])
+                      .filter((photo) => photo.itemId === item.id)
+                      .map((photo) => (
+                        <PhotoThumbnail
+                          key={photo.id}
+                          inspectionId={inspection.id}
+                          photo={photo}
+                          onDelete={() => void removePhoto(photo)}
+                        />
+                      ))}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -690,12 +794,20 @@ function InspectionEditor({
           </div>
           <button onClick={onFinalize}>Terminer l’inspection</button>
           {inspection.status === "completed" && (
-            <button
-              className="secondary"
-              onClick={() => exportInspectionPdf(inspection, profile)}
-            >
-              Télécharger le PDF
-            </button>
+            <div className="actions export-actions">
+              <button
+                className="secondary"
+                onClick={() => void exportInspectionPdf(inspection, profile, "detailed")}
+              >
+                PDF détaillé
+              </button>
+              <button
+                className="secondary"
+                onClick={() => void exportInspectionPdf(inspection, profile, "summary")}
+              >
+                PDF résumé
+              </button>
+            </div>
           )}
           <p className="legal">
             Ce rapport d’inspection ne constitue pas un certificat officiel de

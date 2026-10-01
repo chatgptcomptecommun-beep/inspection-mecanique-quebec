@@ -11,6 +11,9 @@ export default async (request: Request, context: unknown) => {
       return json({ error: "Inspection invalide." }, 400);
     const store = getStore("inspection-photos");
     if (request.method === "POST") {
+      const itemId = url.searchParams.get("itemId")?.trim();
+      if (!itemId || itemId.length > 180)
+        return json({ error: "Élément d’inspection invalide." }, 400);
       const file = await request.blob();
       const mime = request.headers.get("content-type") || "";
       if (!allowed.has(mime) || file.size > maxSize)
@@ -18,9 +21,9 @@ export default async (request: Request, context: unknown) => {
       const id = crypto.randomUUID();
       const key = `${user.sub}/${inspectionId}/${id}`;
       await store.set(key, file, {
-        metadata: { ownerId: user.sub, inspectionId, mime },
+        metadata: { ownerId: user.sub, inspectionId, itemId, mime },
       });
-      return json({ id, key: `${inspectionId}/${id}` }, 201);
+      return json({ id, key: `${inspectionId}/${id}`, itemId, mimeType: mime }, 201);
     }
     if (request.method === "GET") {
       const id = url.searchParams.get("id");

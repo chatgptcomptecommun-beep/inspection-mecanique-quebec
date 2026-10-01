@@ -2,6 +2,8 @@
 
 MVP mobile-first de rapports d’inspection mécanique pour automobiles et camions légers au Québec. Il ne produit pas de certificat officiel de la SAAQ.
 
+Chaque ligne de contrôle accepte plusieurs photos JPEG, PNG ou WebP (5 Mo maximum chacune). Deux rapports sont disponibles : un PDF détaillé avec toutes les lignes et un PDF résumé limité aux réparations requises et éléments à surveiller. Dans les deux modèles, les photos correspondantes sont regroupées dans une section séparée après les lignes d’inspection.
+
 ## Prérequis
 
 - Node.js 20 ou plus récent

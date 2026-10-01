@@ -6,5 +6,6 @@ export interface Vehicle{id?:string;make:string;model:string;year:number;plate:s
 export interface ChecklistItem{id:string;label:string;critical?:boolean;measurement?:string}
 export interface ChecklistSection{id:string;title:string;items:ChecklistItem[]}
 export interface ItemResult{itemId:string;state:ResultState;note?:string;measurement?:string}
-export interface Inspection{id:string;reportNumber:string;status:InspectionStatus;date:string;reason:string;client:Client;vehicle:Vehicle;results:Record<string,ItemResult>;recommendations:string;nextVisitDate?:string;nextVisitMileage?:number;createdAt:string;updatedAt:string}
+export interface InspectionPhoto{id:string;key:string;itemId:string;mimeType:string;name:string}
+export interface Inspection{id:string;reportNumber:string;status:InspectionStatus;date:string;reason:string;client:Client;vehicle:Vehicle;results:Record<string,ItemResult>;photos?:InspectionPhoto[];recommendations:string;nextVisitDate?:string;nextVisitMileage?:number;createdAt:string;updatedAt:string}
 
